@@ -1,12 +1,13 @@
 package com.deblox;
 
-import org.vertx.java.core.AsyncResult;
-import org.vertx.java.core.AsyncResultHandler;
-import org.vertx.java.core.Future;
-import org.vertx.java.core.json.JsonArray;
-import org.vertx.java.core.json.JsonObject;
-import org.vertx.java.core.logging.Logger;
-import org.vertx.java.platform.Verticle;
+import io.vertx.core.AbstractVerticle;
+import io.vertx.core.DeploymentOptions;
+import io.vertx.core.Future;
+import io.vertx.core.VertxOptions;
+import io.vertx.core.json.JsonArray;
+import io.vertx.core.json.JsonObject;
+import io.vertx.core.logging.Logger;
+import io.vertx.core.logging.impl.LoggerFactory;
 
 /**
  * Created by Kegan Holtzhausen on 29/05/14.
@@ -14,45 +15,57 @@ import org.vertx.java.platform.Verticle;
  * This loads the config and then starts the main application
  *
  */
-public class Boot extends Verticle {
+public class Boot extends AbstractVerticle {
 
-    JsonObject config;
-    private Logger logger;
+  JsonObject config;
 
-    @Override
-    public void start(final Future<Void> startedResult) {
-        logger = container.logger();
-        logger.info("starting");
+  private static final Logger logger = LoggerFactory.getLogger(Boot.class);
 
-        config = this.getContainer().config();
+  // Allow running direct from IDE, loads resources/conf.json
+  public static void main(String[] args) {
+    DebloxRunner.runJava("src/main/java", Boot.class, false);
+  }
 
-        logger.info("config: " + config.toString());
+  @Override
+  public void start(final Future<Void> startedResult) {
+    logger.info("\n" +
+            "████████▄     ▄████████ ▀█████████▄   ▄█        ▄██████▄  ▀████    ▐████▀      ▀█████████▄   ▄██████▄   ▄██████▄      ███     \n" +
+            "███   ▀███   ███    ███   ███    ███ ███       ███    ███   ███▌   ████▀         ███    ███ ███    ███ ███    ███ ▀█████████▄ \n" +
+            "███    ███   ███    █▀    ███    ███ ███       ███    ███    ███  ▐███           ███    ███ ███    ███ ███    ███    ▀███▀▀██ \n" +
+            "███    ███  ▄███▄▄▄      ▄███▄▄▄██▀  ███       ███    ███    ▀███▄███▀          ▄███▄▄▄██▀  ███    ███ ███    ███     ███   ▀ \n" +
+            "███    ███ ▀▀███▀▀▀     ▀▀███▀▀▀██▄  ███       ███    ███    ████▀██▄          ▀▀███▀▀▀██▄  ███    ███ ███    ███     ███     \n" +
+            "███    ███   ███    █▄    ███    ██▄ ███       ███    ███   ▐███  ▀███           ███    ██▄ ███    ███ ███    ███     ███     \n" +
+            "███   ▄███   ███    ███   ███    ███ ███▌    ▄ ███    ███  ▄███     ███▄         ███    ███ ███    ███ ███    ███     ███     \n" +
+            "████████▀    ██████████ ▄█████████▀  █████▄▄██  ▀██████▀  ████       ███▄      ▄█████████▀   ▀██████▀   ▀██████▀     ▄████▀   1.0\n" +
+            "                                     ▀                                                                                        ");
 
-        // Start each class mentined in services
-        for (final Object service: config.getArray("services", new JsonArray())) {
-            logger.info("deploying service: " + service);
+    config = config();
+    logger.info("config: " + config.toString());
 
-            JsonObject serviceConfig = config.getObject(service.toString(), new JsonObject());
-            logger.info("service's config: " + serviceConfig);
+    // Start each class mentioned in services
+    for (final Object service : config.getJsonArray("services", new JsonArray())) {
+      logger.info("deploying service: " + service);
 
-            container.deployVerticle(service.toString(), serviceConfig, serviceConfig.getInteger("instances", 1), new AsyncResultHandler<String>() {
+      // get the config for the named service
+      JsonObject serviceConfigJson = config.getJsonObject(service.toString(), new JsonObject());
+      logger.info("serviceConfigJson: " + serviceConfigJson);
 
-                public void handle(AsyncResult<String> deployResult) {
-                    if (deployResult.succeeded()) {
-                        logger.info("successfully deployed service: " + service);
-                    } else {
-                        logger.error("failure while deploying service: " + service + ". reason, " + deployResult.cause());
-                    }
-                }
+      // See DeploymentOptions.fromJson for all the possible configurables
+      DeploymentOptions serviceConfig = new DeploymentOptions(serviceConfigJson);
+      logger.info("service's config: " + serviceConfig.toJson().toString());
 
-            });
+      vertx.deployVerticle(service.toString(), serviceConfig, res -> {
+
+        if (res.succeeded()) {
+          logger.info("successfully deployed service: " + service);
+        } else {
+          logger.error("failure while deploying service: " + service);
+          res.cause().printStackTrace();
         }
 
-        startedResult.setResult(null);
-
-
-        }
-
-
+      });
+    }
+  }
 }
+
 

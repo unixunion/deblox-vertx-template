@@ -22,3 +22,5 @@ test-tmp
 mods
 vertx_classpath.txt
 *.log
+lib
+META-INF
